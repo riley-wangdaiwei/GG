@@ -1,0 +1,53 @@
+---
+title: "Mapping Merge"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(sf)
+library(readxl)
+```
+
+```{r}
+admin3_lines <- read_excel("source/admin_22_25.xlsx", sheet = "gmb_admin2_em")
+finscope <- read_csv("source/finscope_19.csv")
+hh_income <- read_csv("source/householdincome_15.csv")
+hh_labor <- read_csv("source/householdlabor_15.csv")
+hh_savings <- read_csv("source/householdsavings_15.csv")
+hh_weight <- read_csv("source/householdweight_15.csv")
+pop_demo <- read_csv("source/pop_demography_20.csv")
+```
+
+```{r}
+# merge finscope and admin
+# Clean finscope: strip digits and dots from DISTRICT
+fin_subset <- finscope %>%
+  select(SETTLEMENT, mobile_agent_distance = QE1A6, domestic_receive = F8, 
+         international_receive = F9A, means_receive = F10D, DISTRICT) %>%
+  mutate(
+    domestic_receive = if_else(str_detect(domestic_receive, "1. Yes"), 1, 0),
+    international_receive = if_else(str_detect(international_receive, "1. Yes"), 1, 0),
+    match_key = str_remove(tolower(DISTRICT), "^[0-9]+\\.\\s*") %>% str_trim(),
+    match_key = recode(match_key, 
+                       "serrekunda central" = "sere kunda central", "serrekunda east" = "sere kunda east", "serrekunda west" = "sere kunda west", "kombo north" = "kombo north/st marie", "foni bintang karanai" = "foni bintang karenai", "lower badibu"="lower baddibu","central badibu"="central baddibu", "illiasa"="illiassa","sabach sanjar"="sabach - sanjal")
+  )
+
+# Clean admin: normalize adm2_name
+admin_subset <- admin2_lines %>%
+  select(adm2_name, center_lat, center_lon) %>%
+  distinct(adm2_name, .keep_all = TRUE) %>%
+  mutate(match_key = tolower(adm2_name) %>% str_trim())
+
+# Merge
+map_data <- fin_subset %>% left_join(admin_subset, by = "match_key")
+
+# Check success
+message("Match rate: ", round(mean(!is.na(map_data$center_lat)) * 100, 2), "%")
+```
+
+```{r}
+# Output
+write_csv(map_data, "output/mapping_merged.csv")
+```
