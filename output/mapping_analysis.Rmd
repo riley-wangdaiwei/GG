@@ -1,0 +1,96 @@
+---
+title: "Mapping Merge"
+output: html_document
+---
+
+```{r}
+library(ggplot2)
+library(sf)
+library(tidyr)
+library(stringr)
+library(scales)
+```
+
+```{r}
+admin3_lines <- st_read("source/gmb_admin_boundaries.shp/gmb_admin3_em.shp")
+map_data <- read_csv("output/mapping_merged.csv")
+```
+
+```{r}
+# Finscope 
+# 0. Clean and Prepare
+plot_data <- map_data %>% 
+  filter(!is.na(means_receive), !is.na(center_lat), !is.na(center_lon)) %>%
+  mutate(clean_method = means_receive %>%
+           str_replace("^[0-9]+\\.\\s*", "") %>% 
+           str_replace_all("\\?", "") %>% 
+           str_replace("\\s*\\(specify.*", "") %>%
+           str_trim())
+
+matisse_colors <- c(
+  "Cash deposited at bank (branch/bank agent/ATM)" = "#D92121", 
+  "Money transfer agencies (Western union, MoneyGram," = "#2D5DA1", 
+  "Transfer via MFI/Bank" = "#E8C828",                           
+  "Banking Transaction via internet / online / mobile" = "#5DA12D",
+  "Friends or family" = "#A12D8C",                               
+  "Combination of many means, one of which is formal" = "#F28C28", 
+  "Combination of many informal means" = "#2D96A1",              
+  "Other" = "#7F7F7F"                                   
+)
+
+# 1. Aggregate: Calculate percentage AND count (n) per district
+district_stats <- map_data %>%
+  group_by(match_key) %>% 
+  summarise(
+    n = n(), # Count of rows for size
+    dom_pct = mean(domestic_receive == 1, na.rm = TRUE) * 100,
+    int_pct = mean(international_receive == 1, na.rm = TRUE) * 100,
+    lat = first(center_lat),
+    lon = first(center_lon)
+  ) %>%
+  filter(!is.na(lat)) 
+
+# 2. Plotting Function: Color = % (Value), Size = Count (n)
+plot_district_map <- function(data, value_col, title) {
+  ggplot() +
+    geom_sf(data = admin3_lines, fill = "white", color = "grey80") +
+    geom_point(data = data, aes(x = lon, y = lat, 
+                                color = {{value_col}}, 
+                                size = n), 
+               alpha = 0.8) + 
+
+    scale_color_gradient(low = "#e0e0e0", 
+                         high = "#d92121", 
+                         limits = c(0, 50), 
+                         oob = scales::squish) + 
+
+    scale_size_continuous(range = c(2, 10)) + 
+    theme_void() +
+    labs(title = title, color = "% of Yes", size = "Sample Size")
+}
+
+# 3. Generate Maps
+map1 <- plot_district_map(district_stats, dom_pct, "Domestic Receive in the Past 12 Months (%)")
+map2 <- plot_district_map(district_stats, int_pct, "International Receive in the Past 12 Months (%)")
+
+# 4. Map for Means Receive (Categorical)
+map3 <- ggplot() +
+  geom_sf(data = admin3_lines, fill = "white", color = "grey85") +
+  geom_point(data = plot_data, 
+             aes(x = center_lon, y = center_lat, color = clean_method), 
+             size = 1.8, 
+             alpha = 0.6,
+             position = position_jitter(width = 0.05, height = 0.05)) +
+  scale_color_manual(values = matisse_colors) +
+  theme_void() + 
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  labs(title = "Means of Receive", color = "Method") +
+  theme(legend.text = element_text(size = 10),
+        legend.title = element_text(size = 12, face = "bold"))
+```
+
+```{r}
+ggsave("output/domestic_receive_map.png", plot = map1, width = 8, height = 6)
+ggsave("output/international_receive_map.png", plot = map2, width = 8, height = 6)
+ggsave("output/means_of_receive_map.png", plot = map3, width = 8, height = 6)
+```
