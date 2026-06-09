@@ -9,6 +9,7 @@ library(sf)
 library(tidyr)
 library(stringr)
 library(scales)
+library(tidyverse)
 ```
 
 ```{r}
@@ -19,13 +20,8 @@ map_data <- read_csv("output/mapping_merged.csv")
 ```{r}
 # Finscope 
 # 0. Clean and Prepare
-plot_data <- map_data %>% 
-  filter(!is.na(means_receive), !is.na(center_lat), !is.na(center_lon)) %>%
-  mutate(clean_method = means_receive %>%
-           str_replace("^[0-9]+\\.\\s*", "") %>% 
-           str_replace_all("\\?", "") %>% 
-           str_replace("\\s*\\(specify.*", "") %>%
-           str_trim())
+plot_data_all <- map_data %>% 
+  filter(!is.na(center_lat), !is.na(center_lon))
 
 matisse_colors <- c(
   "Cash deposited at bank (branch/bank agent/ATM)" = "#D92121", 
@@ -74,23 +70,58 @@ map1 <- plot_district_map(district_stats, dom_pct, "Domestic Receive in the Past
 map2 <- plot_district_map(district_stats, int_pct, "International Receive in the Past 12 Months (%)")
 
 # 4. Map for Means Receive (Categorical)
+plot_data_map3 <- plot_data_all %>%
+  filter(!is.na(means_receive)) %>% 
+  mutate(clean_method = means_receive %>%
+           str_replace("^[0-9]+\\.\\s*", "") %>% 
+           str_replace_all("\\?", "") %>% 
+           str_replace("\\s*\\(specify.*", "") %>%
+           str_trim())
+
 map3 <- ggplot() +
   geom_sf(data = admin3_lines, fill = "white", color = "grey85") +
-  geom_point(data = plot_data, 
+  geom_point(data = plot_data_map3, 
              aes(x = center_lon, y = center_lat, color = clean_method), 
              size = 1.8, 
              alpha = 0.6,
              position = position_jitter(width = 0.05, height = 0.05)) +
   scale_color_manual(values = matisse_colors) +
-  theme_void() + 
+  theme_void() +
   guides(color = guide_legend(override.aes = list(size = 5))) +
   labs(title = "Means of Receive", color = "Method") +
   theme(legend.text = element_text(size = 10),
         legend.title = element_text(size = 12, face = "bold"))
+
+# Map for Agent Distance
+plot_data_dist <- map_data %>%
+  filter(!str_detect(mobile_agent_distance, "Don")) %>% 
+  mutate(
+    dist_val = as.numeric(str_extract(mobile_agent_distance, "^[0-9]+")),
+    clean_dist = str_replace(mobile_agent_distance, "^[0-9]+\\.\\s*", "")
+  )
+
+map4 <- ggplot() +
+  geom_sf(data = admin3_lines, fill = "white", color = "grey85") +
+  geom_point(data = plot_data_dist, 
+             aes(x = center_lon, y = center_lat, color = dist_val), 
+             size = 2, alpha = 0.7,
+             position = position_jitter(width = 0.05, height = 0.05)) +
+  scale_color_gradient(low = "#D92121", high = "#2D5DA1", 
+                       breaks = c(1, 2, 3),
+                       labels = c("1. Less than 10m", "2. 10-20m", "3. 21-30m")) +
+  theme_void() +
+  labs(title = "Mobile Agent Distance", color = "Distance Category") +
+  theme(legend.text = element_text(size = 10),
+        legend.title = element_text(size = 12, face = "bold"))
+```
+
+```{r}
+map3
 ```
 
 ```{r}
 ggsave("output/domestic_receive_map.png", plot = map1, width = 8, height = 6)
 ggsave("output/international_receive_map.png", plot = map2, width = 8, height = 6)
 ggsave("output/means_of_receive_map.png", plot = map3, width = 8, height = 6)
+ggsave("output/mobile_agent_distance_map.png", plot = map4, width = 8, height = 6)
 ```
