@@ -163,9 +163,47 @@ map4 <- ggplot() +
 ```
 
 ```{r}
+# ==============================================================================
+# 5. Means of Saving Map
+# ==============================================================================
+gambia_colors_2 <- c(
+  "Microfinance Institution (MFI)"             = "#CE1126",
+  "Bank"                                       = "#E8C828",
+  "At home / secret place"                     = "#3A7728",
+  "Cooperatives/Credit Unions"                 = "#0C1C8C",
+  "Osusu"                                      = "#A12D8C",
+  "friend (none household member)"             = "#F28C28",
+  "Other household member or community member" = "#7F7F7F"
+)
+
+map5 <- ggplot() +
+  geom_sf(data = admin3_lines, fill = "white", color = "grey85") +
+  geom_sf(data = admin1_lines, fill = NA, color = "grey20", size = 0.8) +
+  geom_segment(data = admin1_centers, aes(x = x, y = y, xend = x, yend = label_y), color = "grey60", size = 0.3) +
+  geom_text(data = admin1_centers, aes(x = x, y = label_y, label = adm1_name), size = 3, fontface = "bold", color = "grey30", vjust = ifelse(admin1_centers$label_y > 13.6, -0.5, 1.5)) +
+  geom_segment(data = banjul_data, aes(x = x, y = y, xend = x, yend = 13.8), color = "black", size = 0.5) +
+  geom_text(data = banjul_data, aes(x = x, y = 13.8, label = "Banjul"), color = "black", fontface = "bold", size = 5, vjust = -0.5) +
+  geom_point(data = plot_data_save, 
+             aes(x = center_lon, y = center_lat, color = clean_save), 
+             size = 1.8, alpha = 0.6, position = position_jitter(width = 0.05, height = 0.05)) +
+
+  scale_color_manual(values = gambia_colors_2) + 
+  coord_sf(ylim = c(13.0, 13.9)) +
+  theme_void() +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  labs(title = "Where do you mainly SAVE the money", color = "Method") +
+  theme(legend.text = element_text(size = 10), legend.title = element_text(size = 12, face = "bold"))
+```
+
+```{r}
+map5
+```
+
+```{r}
 # Save Outputs
 ggsave("output/domestic_receive_map.png", plot = map1, width = 8, height = 6)
 ggsave("output/international_receive_map.png", plot = map2, width = 8, height = 6)
 ggsave("output/means_of_receive_map.png", plot = map3, width = 8, height = 6)
 ggsave("output/mobile_agent_distance_map.png", plot = map4, width = 8, height = 6)
+ggsave("output/means_of_save_map.png", plot = map5, width = 8, height = 6)
 ```

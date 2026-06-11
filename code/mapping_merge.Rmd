@@ -25,7 +25,7 @@ pop_demo <- read_csv("source/pop_demography_20.csv")
 # Clean finscope: strip digits and dots from DISTRICT
 fin_subset <- finscope %>%
   select(SETTLEMENT, mobile_agent_distance = QE1A6, domestic_receive = F8, 
-         international_receive = F9A, means_receive = F10D, DISTRICT) %>%
+         international_receive = F9A, means_receive = F10D, DISTRICT, save_method = C11B_new) %>%
   mutate(
     domestic_receive = if_else(str_detect(domestic_receive, "1. Yes"), 1, 0),
     international_receive = if_else(str_detect(international_receive, "1. Yes"), 1, 0),
