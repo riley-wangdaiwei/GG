@@ -35,7 +35,7 @@ fin_subset <- finscope %>%
   )
 
 # Clean admin: normalize adm2_name
-admin_subset <- admin2_lines %>%
+admin_subset <- admin3_lines %>%
   select(adm2_name, center_lat, center_lon) %>%
   distinct(adm2_name, .keep_all = TRUE) %>%
   mutate(match_key = tolower(adm2_name) %>% str_trim())
