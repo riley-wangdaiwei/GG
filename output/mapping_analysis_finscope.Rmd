@@ -166,6 +166,14 @@ map4 <- ggplot() +
 # ==============================================================================
 # 5. Means of Saving Map
 # ==============================================================================
+plot_data_save <- map_data %>%
+  filter(!is.na(save_method)) %>% 
+  mutate(clean_save = save_method %>%
+           str_replace("^[0-9]+\\.\\s*", "") %>% 
+           str_replace_all("\\?", "") %>% 
+           str_replace("\\s*\\(specify.*", "") %>%
+           str_trim())
+
 gambia_colors_2 <- c(
   "Microfinance Institution (MFI)"             = "#CE1126",
   "Bank"                                       = "#E8C828",
@@ -191,12 +199,112 @@ map5 <- ggplot() +
   coord_sf(ylim = c(13.0, 13.9)) +
   theme_void() +
   guides(color = guide_legend(override.aes = list(size = 5))) +
-  labs(title = "Where do you mainly SAVE the money", color = "Method") +
+  labs(title = "Where do you mainly save the money", color = "Method") +
   theme(legend.text = element_text(size = 10), legend.title = element_text(size = 12, face = "bold"))
 ```
 
 ```{r}
-map5
+# ==============================================================================
+# 6. Remittances Out
+# ==============================================================================
+plot_data_f2b <- map_data %>%
+  filter(!is.na(send_country)) %>%
+  mutate(send_country = str_replace_all(send_country, "(.)(?!$)", "\\1,")) %>%
+  separate_rows(send_country, sep = ",") %>%
+  mutate(clean_country = recode(send_country, 
+    "A"  = "Senegal",
+    "B"  = "Guinea (Conakry)",
+    "E"  = "Mali",
+    "F"  = "Sierra Leone",
+    "C"  = "Mauritania",
+    "H"  = "Ghana",
+    "N"  = "Nigeria",
+    "L"  = "Liberia",
+    "D"  = "Other West Africa (specify)",
+    "AF" = "Other African country (specify)"
+  )) %>%
+  filter(!is.na(clean_country))
+
+f2b_colors <- c(
+  "Senegal"                         = "#CE1126",
+  "Guinea (Conakry)"                = "#0C1C8C",
+  "Mali"                            = "#F28C28",
+  "Sierra Leone"                    = "#A12D8C",
+  "Mauritania"                      = "#E8C828",
+  "Ghana"                           = "#7F7F7F",
+  "Nigeria"                         = "#3A7728",
+  "Liberia"                         = "#4682B4",
+  "Other West Africa (specify)"     = "#FF6347",
+  "Other African country (specify)" = "#20B2AA"
+)
+
+map6 <- ggplot() +
+  geom_sf(data = admin3_lines, fill = "white", color = "grey85") +
+  geom_sf(data = admin1_lines, fill = NA, color = "grey20", size = 0.8) +
+  geom_segment(data = admin1_centers, aes(x = x, y = y, xend = x, yend = label_y), color = "grey60", size = 0.3) +
+  geom_text(data = admin1_centers, aes(x = x, y = label_y, label = adm1_name), size = 3, fontface = "bold", color = "grey30", vjust = ifelse(admin1_centers$label_y > 13.6, -0.5, 1.5)) +
+  geom_segment(data = banjul_data, aes(x = x, y = y, xend = x, yend = 13.8), color = "black", size = 0.5) +
+  geom_text(data = banjul_data, aes(x = x, y = 13.8, label = "Banjul"), color = "black", fontface = "bold", size = 5, vjust = -0.5) +
+  geom_point(data = plot_data_f2b, 
+             aes(x = center_lon, y = center_lat, color = clean_country), 
+             size = 1.8, alpha = 0.6, position = position_jitter(width = 0.05, height = 0.05)) +
+  scale_color_manual(values = f2b_colors) +
+  coord_sf(ylim = c(13.0, 13.9)) +
+  theme_void() +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  labs(title = "Which country did you send money to?", color = "Country") +
+  theme(legend.text = element_text(size = 10), legend.title = element_text(size = 12, face = "bold"))
+```
+
+```{r}
+# ==============================================================================
+# 7. Remittances In
+# ==============================================================================
+letter_map <- c(
+  "A" = "UK", "B" = "USA", "C" = "Spain", "D" = "Italy",
+  "E" = "Germany", "F" = "Sweden", "G" = "France", "H" = "Angola",
+  "I" = "UAE", "J" = "Switzerland", "K" = "Norway", "L" = "Canada",
+  "M" = "Libya", "N" = "Other European", "O" = "Other West Africa", 
+  "P" = "Other African", "Q" = "Non-African"
+)
+
+plot_data_f9b <- map_data %>%
+  filter(!is.na(receive_country), 
+         !receive_country %in% c("0", "1")) %>% 
+  mutate(split_country = str_split(receive_country, "")) %>%
+  unnest(split_country) %>%
+  filter(!split_country %in% c("R", "S")) %>%
+  mutate(clean_country = recode(split_country, !!!letter_map)) %>%
+  filter(!is.na(clean_country))
+
+plot_data_f9b_clean <- plot_data_f9b %>%
+  filter(!is.na(clean_country)) %>%
+  filter(clean_country %in% c("UK", "USA", "Spain", "Italy", "Germany", 
+                              "Sweden", "France", "Angola", "UAE", 
+                              "Switzerland", "Norway", "Canada", "Libya", 
+                              "Other European", "Other West Africa", 
+                              "Other African", "Non-African")) %>%
+  mutate(clean_country = droplevels(factor(clean_country)))
+
+map7 <- ggplot() +
+  geom_sf(data = admin3_lines, fill = "white", color = "grey85") +
+  geom_sf(data = admin1_lines, fill = NA, color = "grey20", size = 0.8) +
+  geom_segment(data = admin1_centers, aes(x = x, y = y, xend = x, yend = label_y), color = "grey60", size = 0.3) +
+  geom_text(data = admin1_centers, aes(x = x, y = label_y, label = adm1_name), size = 3, fontface = "bold", color = "grey30", vjust = ifelse(admin1_centers$label_y > 13.6, -0.5, 1.5)) +
+  geom_segment(data = banjul_data, aes(x = x, y = y, xend = x, yend = 13.8), color = "black", size = 0.5) +
+  geom_text(data = banjul_data, aes(x = x, y = 13.8, label = "Banjul"), color = "black", fontface = "bold", size = 5, vjust = -0.5) +
+  geom_point(data = plot_data_f9b_clean, 
+             aes(x = center_lon, y = center_lat, color = clean_country), 
+             size = 1.3, alpha = 0.6, position = position_jitter(width = 0.05, height = 0.05)) +
+  scale_color_viridis_d(option = "turbo") + 
+  theme_void() +
+  guides(color = guide_legend(override.aes = list(size = 5), ncol = 2)) +
+  labs(title = "From which countries have you received money?", color = "Country") +
+  theme(legend.text = element_text(size = 9), legend.title = element_text(size = 12, face = "bold"))
+```
+
+```{r}
+map7
 ```
 
 ```{r}
@@ -206,4 +314,6 @@ ggsave("output/international_receive_map.png", plot = map2, width = 8, height = 
 ggsave("output/means_of_receive_map.png", plot = map3, width = 8, height = 6)
 ggsave("output/mobile_agent_distance_map.png", plot = map4, width = 8, height = 6)
 ggsave("output/means_of_save_map.png", plot = map5, width = 8, height = 6)
+ggsave("output/remittances_out_map.png", plot = map6, width = 8, height = 6)
+ggsave("output/remittances_in_map.png", plot = map7, width = 8, height = 6)
 ```
