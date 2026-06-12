@@ -18,6 +18,7 @@ hh_labor <- read_csv("source/householdlabor_15.csv")
 hh_savings <- read_csv("source/householdsavings_15.csv")
 hh_weight <- read_csv("source/householdweight_15.csv")
 pop_demo <- read_csv("source/pop_demography_20.csv")
+connectivity <- read_csv("source/connectivity_24.csv")
 ```
 
 ```{r}
@@ -48,6 +49,27 @@ message("Match rate: ", round(mean(!is.na(map_data$center_lat)) * 100, 2), "%")
 ```
 
 ```{r}
+# merge hh_income and admin
+hh_income_subset <- hh_income %>%
+  select(settlement, hh_income_12m = s4aq3) %>%
+  mutate(
+    hh_income_12m = replace_na(hh_income_12m, 0),
+    join_key = str_sub(as.character(settlement), 1, 3)
+  )
+
+admin_geo_mapping <- admin3_lines %>%
+  mutate(join_key = str_sub(as.character(adm2_pcode), -3, -1)) %>%
+  select(join_key, center_lat, center_lon) %>%
+  distinct(join_key, .keep_all = TRUE)
+
+map_data_hh_income <- hh_income_subset %>%
+  left_join(admin_geo_mapping, by = "join_key")
+
+View(map_data_hh_income)
+```
+
+```{r}
 # Output
 write_csv(map_data, "output/mapping_merged.csv")
+write_csv(map_data_hh_income, "output/mapping_hh_income.csv")
 ```

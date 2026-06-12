@@ -1,0 +1,87 @@
+```{r}
+# Load libraries
+library(ggplot2)
+library(sf)
+library(tidyverse)
+```
+
+```{r}
+# Load data
+admin3_lines <- st_read("source/gmb_admin_boundaries.shp/gmb_admin3_em.shp")
+admin1_lines <- st_read("source/gmb_admin_boundaries.shp/gmb_admin1_em.shp")
+map_data_hh_income  <- read_csv("output/mapping_hh_income.csv")
+```
+
+```{r}
+# Mapping Function
+admin1_centers <- admin1_lines %>%
+  sf::st_centroid() %>%
+  dplyr::mutate(
+    x = sf::st_coordinates(.)[, 1],
+    y = sf::st_coordinates(.)[, 2]
+  ) %>%
+  dplyr::filter(!stringr::str_detect(adm1_name, "Banjul")) %>%
+  dplyr::mutate(
+    label_y = case_when(
+      adm1_name == "Kanifing Municipal Council" ~ 13.05,
+      adm1_name == "West Coast"                ~ 13.15,
+      adm1_name == "Lower River"               ~ 13.17,
+      adm1_name == "North Bank"                ~ 13.75,
+      adm1_name == "Central River North"       ~ 13.85,
+      adm1_name == "Central River South"       ~ 13.10,
+      adm1_name == "Upper River"               ~ 13.75,
+      TRUE                                     ~ 13.5
+    )
+  )
+
+# Banjul Data
+banjul_data <- admin1_lines %>%
+  dplyr::filter(stringr::str_detect(adm1_name, "Banjul")) %>%
+  sf::st_centroid() %>%
+  dplyr::mutate(
+    x = sf::st_coordinates(.)[, 1],
+    y = sf::st_coordinates(.)[, 2]
+  )
+```
+```{r}
+# Income Distribution Map
+income_stats <- map_data_hh_income %>%
+  filter(!is.na(hh_income_12m), hh_income_12m > 0) %>%
+  group_by(join_key) %>%
+  summarise(
+    n = n(),
+    mean_income = mean(hh_income_12m, na.rm = TRUE),
+    lat = first(center_lat),
+    lon = first(center_lon)
+  ) %>%
+  filter(!is.na(lat))
+
+income_cap <- quantile(income_stats$mean_income, 0.95, na.rm = TRUE)
+
+income_map_agg <- ggplot() +
+  geom_sf(data = admin3_lines, fill = "white", color = "grey85") +
+  geom_sf(data = admin1_lines, fill = NA, color = "grey20", size = 0.8) +
+  geom_segment(data = admin1_centers, aes(x = x, y = y, xend = x, yend = label_y), color = "grey60", size = 0.3) +
+  geom_text(data = admin1_centers, aes(x = x, y = label_y, label = adm1_name), size = 3, fontface = "bold", color = "grey30", vjust = ifelse(admin1_centers$label_y > 13.6, -0.5, 1.5)) +
+  geom_segment(data = banjul_data, aes(x = x, y = y, xend = x, yend = 13.8), color = "black", size = 0.5) +
+  geom_text(data = banjul_data, aes(x = x, y = 13.8, label = "Banjul"), color = "black", fontface = "bold", size = 5, vjust = -0.5) +
+
+  geom_point(data = income_stats, aes(x = lon, y = lat, color = mean_income, size = n), alpha = 0.8) +
+  scale_color_gradient(low = "#e0e0e0", high = "#d92121", limits = c(0, income_cap), oob = scales::squish, name = "Avg Income") +
+  scale_size_continuous(range = c(2, 10), name = "Sample Size") +
+  coord_sf(xlim = c(-17.4, -13.5), ylim = c(12.8, 14.1), expand = FALSE) +
+  theme_void() +
+  labs(title = "Average Household Income by Area") +
+  theme(legend.text = element_text(size = 10), legend.title = element_text(size = 12, face = "bold"))
+
+print(income_map_agg)
+```
+
+```{r}
+
+```
+
+```{r}
+# Save plot
+ggsave("output/income_distribution_map.png", plot = income_map_agg, width = 10, height = 6, dpi = 300)
+```
