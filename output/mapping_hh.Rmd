@@ -10,6 +10,7 @@ library(tidyverse)
 admin3_lines <- st_read("source/gmb_admin_boundaries.shp/gmb_admin3_em.shp")
 admin1_lines <- st_read("source/gmb_admin_boundaries.shp/gmb_admin1_em.shp")
 map_data_hh_income  <- read_csv("output/mapping_hh_income.csv")
+map_data_pop_den <- read_csv("source/pop_demography_20.csv")
 ```
 
 ```{r}
@@ -78,10 +79,37 @@ print(income_map_agg)
 ```
 
 ```{r}
+map_pop_den <- ggplot() +
+  # Map Background
+  geom_sf(data = admin3_lines, fill = "white", color = "grey85") +
+  geom_sf(data = admin1_lines, fill = NA, color = "grey20", size = 0.8) +
+  
+  # Data layer
+  geom_tile(data = map_data_pop_den, 
+            aes(x = longitude, y = latitude, fill = gmb_general_2020)) +
+  scale_fill_gradient(low = "#3A7728", 
+                      high = "#CE1126", 
+                      trans = "log1p", 
+                      name = "Density") +
+  
+  # Labels and Annotations
+  geom_segment(data = admin1_centers, aes(x = x, y = y, xend = x, yend = label_y), color = "grey60", size = 0.3) +
+  geom_text(data = admin1_centers, aes(x = x, y = label_y, label = adm1_name), size = 3, fontface = "bold", color = "grey30", vjust = ifelse(admin1_centers$label_y > 13.6, -0.5, 1.5)) +
+  geom_segment(data = banjul_data, aes(x = x, y = y, xend = x, yend = 13.8), color = "black", size = 0.5) +
+  geom_text(data = banjul_data, aes(x = x, y = 13.8, label = "Banjul"), color = "black", fontface = "bold", size = 5, vjust = -0.5) +
+  
+  # Spatial Constraints
+  coord_sf(xlim = c(-17.2, -13.5), ylim = c(12.8, 14.1), expand = FALSE) +
+  theme_void() +
+  labs(title = "Population Density Map")
+```
 
+```{r}
+print(map_pop_den)
 ```
 
 ```{r}
 # Save plot
+ggsave("output/pop_density_map.png", plot = map_pop_den, width = 10, height = 6, dpi = 300)
 ggsave("output/income_distribution_map.png", plot = income_map_agg, width = 10, height = 6, dpi = 300)
 ```
